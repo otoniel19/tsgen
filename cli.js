@@ -1,48 +1,41 @@
 #!/usr/bin/env node
 const cli = require("commander").program;
-const { resolve } = require("path");
-const fs = require("fs");
-cli.version(require(resolve("package.json")));
+const { log, exec } = require("./utils");
+const tsgen = require("./tsgen");
+const path = require("path");
+const { existsSync } = require("fs");
 
-const shell = require("shelljs");
-shell.config.silent = true;
+cli.version(require("./package.json").version);
 
-const sh = Object.create(shell);
+var pkg = require(path.resolve("package.json"));
 
-const log = (...data) => {
-  data = data.map((o) => require("node-emoji").emojify(o));
-  console.log.apply(this, data);
-};
+cli.command("local").action(async () => {
+  log(`:mag: analyzing the project ${pkg.name}`);
+  var shell = await exec(`find -iname "*.d.ts" -not -path "./node_modules/*"`);
+  if (shell.stdout != "")
+    log(`:white_check_mark: ${pkg.name} already have ts definitions`);
+  else {
+    await tsgen("gen", pkg.name, false);
+  }
+});
 
-var pkg = JSON.parse(fs.readFileSync(resolve("package.json"), "utf8"));
+cli.command("pkg").action(() => {
+  var len = Object.keys(pkg.dependencies);
+  log(`:package: ${len.length} packages found`);
 
-cli
-  .command("package")
-  .description("generate or install ts definitions.")
-  .action(() => {
-    var keys = Object.keys(pkg.dependencies);
-    if (!pkg.dependencies) cli.error("no packages found.");
-    log(`:package: ${keys.length} packages found.\n`);
-    keys.forEach((name) => {
-      log(`:mag: scanning ${name}`);
-      log(`:package: cheking ts definitions.`);
-      //check if .d.ts exists
-      var ex = sh.exec(`find -iwholename "./node_modules/${name}/*.d.ts"`);
-      ex != ""
-        ? log(`:package: package ${name} already have ts definitions\n`)
-        : require("./lib/pkg-gen")(name);
-    });
+  len.forEach(async (n) => {
+    var dtsEx = await exec(
+      `find -iwholename "./node_modules/${n}/*.d.ts" -not -path "./node_modules/${n}/node_modules/*"`
+    );
+    log(`:mag: cheking package ${n}`);
+    if (dtsEx.stdout != "")
+      log(`:white_check_mark: package ${n} already have ts definitions\n`);
+    else {
+      if (existsSync(`./node_modules/@types/${n}`))
+        log(`:white_check_mark: @types/${n} already installed\n`);
+      else tsgen("install", n, true);
+    }
   });
-
-cli
-  .command("local")
-  .description("generate ts definitions for project.")
-  .action(() => {
-    log(`:mag: ${pkg.name} checking ts definitions`);
-    var ex = sh.exec(`find -iname "*.d.ts" -not -path "./node_modules/*"`);
-    ex != ""
-      ? log(`:white_check_mark: ${pkg.name} already have ts definitions`)
-      : require("./lib/local-gen")(pkg.name);
-  });
+});
 
 cli.parse(process.argv);
