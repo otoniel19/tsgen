@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/otoniel19/tsgen#readme",
   "dependencies": {
+    "@otoniel19/super-prompt": "^1.0.1",
     "colors": "^1.4.0",
     "commander": "^9.0.0",
     "execa": "^5.1.1",

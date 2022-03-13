@@ -1,47 +1,37 @@
-const { log, exec } = require("./utils");
+const { log, sleep, exec } = require("./utils");
+const fs = require("fs");
+const path = require("path");
 
-const gen = async (pkg, isPkg) => {
-  const init = `rm -rf tsconfig.json types && mkdir types && npx tsc --init --allowJs --target esnext --module commonjs --lib esnext --checkJs --declaration --emitDeclarationOnly --outDir types`;
-  log(`:hammer: building ts definitions for ${isPkg ? pkg : `project ${pkg}`}`);
-
-  log(`:arrow_right: ${init}`);
-  if (isPkg) await exec(init, `${process.cwd()}/node_modules/${pkg}`);
-  else await exec(init);
-  log(`:arrow_right: npx tsc -p tsconfig.json`);
-
-  var sh;
-  if (isPkg)
-    sh = await exec(
-      `npx tsc -p tsconfig.json`,
-      `${process.cwd()}/node_modules/${pkg}`
-    );
-  else sh = await exec(`npx tsc -p tsconfig.json`);
-
-  sh.stderr == ""
-    ? log(`:white_check_mark: successfully built\n`)
-    : log(`:x: failure to build\n`);
-  return new Promise((res, rej) => res(void ""));
-};
 const install = async (name) => {
-  var exists = await exec(`npm view @types/${name}`);
-  if (exists.failed) gen(name, true);
-  else {
-    log(`:arrow_down:  installing @types/${name}`);
-    var down = await exec(`npm i -D @types/${name}`);
-    down.stderr != ""
-      ? log(`:x: failed to install @types/${name}\n`)
-      : log(`:white_check_mark: @types/${name} installed\n`);
-    return new Promise((res, rej) => res(void 0));
-  }
+  log(`:arrow_down:  installing ${name}`);
+  var sh = await exec(`npm install -D ${name}`);
+  if (sh.failed) log(`:x: failed to install ${name}\n`), gen(name);
+  else log(`:white_check_mark: ${name} installed\n`);
 };
 
-module.exports = async (type, name, isPkg) => {
-  switch (type) {
-    case "gen":
-      await gen(name, isPkg);
-      break;
-    case "install":
-      await install(name);
-      break;
-  }
+var scripts = {
+  init: `rm -rf types && mkdir types && rm -rf tsconfig.json && npx tsc --init --allowJs --target esnext --declaration --emitDeclarationOnly --module commonjs --outDir types`,
+  build: `rm -rf types; mkdir types && npx tsc -p tsconfig.json`
+};
+
+const gen = async (name) => {
+  log(`:hammer: building ts definitions for ${name}`);
+  var pkg = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf-8"));
+  var cwd = process.cwd();
+  //is a package not a project
+  if (pkg.name !== name) cwd = `${process.cwd()}/node_modules/${name}/`;
+
+  log(`:arrow_right: ${scripts.init}`);
+  await exec(scripts.init, cwd);
+  log(`:arrow_right: ${scripts.build}`);
+  var build = await exec(scripts.build, cwd);
+  !build.failed
+    ? log(
+        `:white_check_mark: successfully  build ts declarations for ${name}\n`
+      )
+    : log(`:x: failed to build ts declarations for ${name}\n`);
+};
+
+module.exports = async (g, name) => {
+  !g ? await install(name) : await gen(name);
 };

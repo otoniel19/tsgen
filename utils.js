@@ -14,6 +14,20 @@ const exec = async (command, cwd) => {
 
 require("colors");
 
+/**
+ * @returns {Promise<>)}
+ */
+const get = async (url) => {
+  return new Promise((resolve, reject) => {
+    var { get } = require("https");
+    var data = "";
+    get(url, (res) => {
+      res.on("data", (ch) => (data += ch.toString()));
+      res.on("end", () => resolve(Object.assign(res, { data })));
+    });
+  });
+};
+
 const log = (...data) => {
   var oldData = data;
   try {
@@ -24,7 +38,11 @@ const log = (...data) => {
   console.log.apply(this, [...data]);
 };
 
+const sleep = (ms) => exec(`sleep ${ms}`);
+
 module.exports = {
   exec,
-  log
+  log,
+  get,
+  sleep
 };
