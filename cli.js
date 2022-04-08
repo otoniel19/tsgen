@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 const cli = require("commander").program;
-const { log, exec, get, sleep } = require("./utils");
+const { log, exec, get } = require("./utils");
 const fs = require("fs");
 const path = require("path");
 const tsgen = require("./tsgen");
 
-var pkg = require(path.resolve("package.json"));
+try {
+  var pkg = require(path.resolve("package.json"));
+} catch (e) {
+  log(`error`.red, `package.json not found`);
+  process.exit();
+}
 
 cli.command("pkg").action(() => {
   var len = Object.keys(pkg.dependencies);
@@ -21,12 +26,21 @@ cli.command("pkg").action(() => {
     //check if package have @types
     var check = await get(`https://registry.npmjs.org/@types/${str}`);
     //check if package already have ts definitions
-    var dts = await exec(`find -iwholename "./node_modules/${str}/*"`);
+    var dts = await exec(
+      `find -iwholename "./node_modules/${str}/*.d.ts" -not -path "./node_modules/${str}/node_modules/*"`
+    );
     //check if have ts definitions or @types already is installed
-    if (dts.stdout != "" || fs.existsSync("./node_modules/@types/" + str))
+    if (
+      dts.stdout != "" ||
+      "@types/" + str in pkg.devDependencies ||
+      fs.existsSync("./node_modules/@types/" + str)
+    )
       log(`:white_check_mark: package ${str} already have ts definitions\n`);
     //when package @types/pkg not exists on npm
-    else check.statusCode == 200 ? tsgen(false, str) : tsgen(true, str);
+    else
+      check.statusCode == 200
+        ? tsgen(false, "@types/" + str)
+        : tsgen(true, str);
   });
 });
 

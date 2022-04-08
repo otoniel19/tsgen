@@ -1,4 +1,4 @@
-const { log, sleep, exec } = require("./utils");
+const { log, exec } = require("./utils");
 const fs = require("fs");
 const path = require("path");
 

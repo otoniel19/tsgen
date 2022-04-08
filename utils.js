@@ -21,9 +21,13 @@ const get = async (url) => {
   return new Promise((resolve, reject) => {
     var { get } = require("https");
     var data = "";
-    get(url, (res) => {
+    var req = get(url, (res) => {
       res.on("data", (ch) => (data += ch.toString()));
       res.on("end", () => resolve(Object.assign(res, { data })));
+    });
+    req.on("error", (e) => {
+      console.log(`error`.red, `${e.message}`);
+      process.exit();
     });
   });
 };
